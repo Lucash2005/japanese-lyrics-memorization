@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Allow Cloud Agent / browser testing via 127.0.0.1 (hydration + HMR)
+  // Dev hydration/HMR when opened via 127.0.0.1 (Cloud Agent / browsers)
   allowedDevOrigins: ["127.0.0.1", "localhost"],
 };
 

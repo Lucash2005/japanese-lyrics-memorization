@@ -1,57 +1,66 @@
 # 練歌 · 日文歌詞背誦
 
-A mobile-friendly dark-mode web app for memorizing Japanese song lyrics with Traditional Chinese (繁體中文) translations.
+用三種模式背誦日文歌詞（繁體中文翻譯）的手機友善深色網頁 App。
 
-Built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, and **Lucide React**.
+技術：**Next.js (App Router)**、**TypeScript**、**Tailwind CSS**、**Lucide React**。
 
-## Features
-
-Three modes on one sample song:
-
-| Mode | Label | What it does |
-|------|--------|--------------|
-| A | 學習模式 | Study lines with furigana / translation toggles; click a card to hide/reveal Japanese |
-| B | 遮蔽填空模式 | Flashcard cloze with 顯示答案, then 重背 / 記住 mastery updates |
-| C | 單句循環與聽寫 | Audio player UI with speed controls and per-line seek via `startTime` |
-
-Mastery (0–5) persists in `localStorage` for the session browser.
-
-## Getting started
+## 本機執行
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+電腦瀏覽器開啟： [http://localhost:43123](http://localhost:43123)
 
-### Other scripts
+### 用 iPhone 打開（同一 Wi‑Fi）
+
+1. 在**電腦**上執行 `npm run dev`（不要關）
+2. 查電腦區網 IP：
+   - macOS：系統設定 → 網路 → Wi‑Fi → 详情，或終端機跑 `ipconfig getifaddr en0`
+   - Windows：命令提示字元跑 `ipconfig`，看「IPv4 位址」
+3. iPhone 與電腦連**同一個 Wi‑Fi**
+4. iPhone Safari 輸入：`http://你的電腦IP:43123`  
+   例如：`http://192.168.1.23:43123`
+
+> 不要在手機上開 `localhost` / `127.0.0.1`——那會連到手機自己，不是你的電腦。  
+> Cursor 雲端預覽網址也無法直接給 iPhone 用；請在本機跑起來再用區網 IP。
+
+若打不開，檢查：電腦防火牆是否放行 43123、雙方是否同一 Wi‑Fi（訪客網路常會隔離裝置）。
+
+### 其他指令
 
 ```bash
-npm run build   # production build
-npm run start   # serve production build
-npm run lint    # ESLint
+npm run build   # 正式建置
+npm run start   # 用正式建置啟動（同樣可用區網 IP 開）
+npm run lint
 ```
 
-## Project structure
+## 功能
+
+| 模式 | 名稱 | 說明 |
+|------|------|------|
+| A | 學習模式 | 假名／中文翻譯開關；點卡片顯示或隱藏日文 |
+| B | 遮蔽填空 | 顯示答案後「重背／記住」調整熟練度 |
+| C | 單句循環 | 播放速度與依 `startTime` 跳句 |
+
+熟練度（0–5）會存在瀏覽器 `localStorage`。
+
+## 專案結構
 
 ```
-app/                 # App Router layout + page
-components/          # ModeSwitcher, StudyMode, ClozeMode, LoopMode, …
-data/sampleSong.json # Demo song 「桜の道」
-types/lyrics.ts      # Line / Song types
-lib/furigana.tsx     # Ruby furigana renderer
+app/                 # App Router
+components/          # ModeSwitcher、StudyMode、ClozeMode、LoopMode…
+data/sampleSong.json # 示範歌「桜の道」
+types/lyrics.ts
+lib/furigana.tsx
 ```
 
-## Adding your own song
+## 換成自己的歌
 
-Edit `data/sampleSong.json` (or load another `Song`). Each line needs:
+編輯 `data/sampleSong.json`。每句需要：
 
-- `japanese`, `furigana` (e.g. `桜(さくら)の道(みち)`), `translation`
-- `mastery` (start at `0`)
-- optional `startTime` (seconds) and `hint` for cloze
-- optional song-level `audioUrl` for real playback in Loop mode
-
-## Sample song
-
-Demo data uses an original short practice song 「桜の道」 so the app works offline with no copyrighted audio.
+- `japanese`、`furigana`（例如 `桜(さくら)の道(みち)`）、`translation`
+- `mastery`（從頭用 `0`）
+- 可選 `startTime`、`hint`
+- 歌曲層級可選 `audioUrl`（單句循環真實播放）
