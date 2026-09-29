@@ -17,8 +17,9 @@ interface ClozeModeProps {
 }
 
 export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
-  const initialQueue = useMemo(() => lines.map((l) => l.id), [lines]);
-  const [queue, setQueue] = useState<string[]>(initialQueue);
+  // Stable id list — mastery updates must NOT reset the review queue
+  const lineIds = useMemo(() => lines.map((l) => l.id).join("|"), [lines]);
+  const [queue, setQueue] = useState<string[]>(() => lines.map((l) => l.id));
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
   const [reviewed, setReviewed] = useState(0);
@@ -40,8 +41,11 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
   }, [lines]);
 
   useEffect(() => {
-    resetSession();
-  }, [resetSession]);
+    setQueue(lineIds.split("|").filter(Boolean));
+    setRevealed(false);
+    setDone(false);
+    setReviewed(0);
+  }, [lineIds]);
 
   const handleHard = () => {
     if (!current) return;
