@@ -5,12 +5,28 @@ export const metadata: Metadata = {
   title: "練歌 · 日文歌詞背誦",
   description:
     "用學習、遮蔽填空與單句循環三種模式背誦日文歌詞（繁體中文翻譯）",
+  applicationName: "練歌",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "練歌",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
   themeColor: "#0c0e12",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

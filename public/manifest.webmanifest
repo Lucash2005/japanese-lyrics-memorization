@@ -1,0 +1,25 @@
+{
+  "name": "練歌 · 日文歌詞背誦",
+  "short_name": "練歌",
+  "description": "日文歌詞背誦：學習、遮蔽填空、單句循環",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0e12",
+  "theme_color": "#0c0e12",
+  "orientation": "portrait-primary",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

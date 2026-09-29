@@ -13,20 +13,22 @@ npm run dev
 
 電腦瀏覽器開啟： [http://localhost:43123](http://localhost:43123)
 
-### 用 iPhone 打開（同一 Wi‑Fi）
+### 手機長期使用（不開電腦）
+
+把網站部署到 Vercel 後，iPhone 用 Safari 開網址即可，不必再開電腦：
+
+1. 用電腦或 Cursor 部署一次（見下方 claim / `vercel`）
+2. iPhone Safari 打開公開網址
+3. 分享 → **加入主畫面**，之後像 App 一樣點開
+
+### 用 iPhone 連本機開發伺服器（同一 Wi‑Fi）
 
 1. 在**電腦**上執行 `npm run dev`（不要關）
-2. 查電腦區網 IP：
-   - macOS：系統設定 → 網路 → Wi‑Fi → 详情，或終端機跑 `ipconfig getifaddr en0`
-   - Windows：命令提示字元跑 `ipconfig`，看「IPv4 位址」
+2. 查電腦區網 IP（Mac：`ipconfig getifaddr en0`）
 3. iPhone 與電腦連**同一個 Wi‑Fi**
-4. iPhone Safari 輸入：`http://你的電腦IP:43123`  
-   例如：`http://192.168.1.23:43123`
+4. Safari 輸入：`http://你的電腦IP:43123`
 
-> 不要在手機上開 `localhost` / `127.0.0.1`——那會連到手機自己，不是你的電腦。  
-> Cursor 雲端預覽網址也無法直接給 iPhone 用；請在本機跑起來再用區網 IP。
-
-若打不開，檢查：電腦防火牆是否放行 43123、雙方是否同一 Wi‑Fi（訪客網路常會隔離裝置）。
+> 不要在手機開 `localhost` / `127.0.0.1`。雲端預覽網址也無法直接給 iPhone 長期用。
 
 ### 其他指令
 
