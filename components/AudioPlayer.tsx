@@ -15,6 +15,7 @@ import {
   Music,
 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
+import { isSpeechSupported, speakJapanese, stopSpeaking } from "@/lib/tts";
 
 interface AudioPlayerProps {
   audioUrl?: string;
@@ -164,11 +165,25 @@ interface LoopModeProps {
 export function LoopMode({ lines, audioUrl }: LoopModeProps) {
   const [rate, setRate] = useState(1);
   const [seekTo, setSeekTo] = useState<number | null>(null);
+  const [speechOk, setSpeechOk] = useState(false);
+  const hasSrc = Boolean(audioUrl && audioUrl.trim().length > 0);
+
+  useEffect(() => {
+    setSpeechOk(isSpeechSupported());
+    return () => stopSpeaking();
+  }, []);
 
   const clearSeek = useCallback(() => setSeekTo(null), []);
 
-  const playSentence = (startTime?: number) => {
-    setSeekTo(typeof startTime === "number" ? startTime : 0);
+  const playSentence = (line: Line) => {
+    if (hasSrc) {
+      setSeekTo(typeof line.startTime === "number" ? line.startTime : 0);
+      return;
+    }
+    // No song audio file → speak the line with TTS
+    void speakJapanese(line.furigana || line.japanese, {
+      rate: rate >= 1 ? 1 : rate,
+    }).catch(() => {});
   };
 
   return (
@@ -179,6 +194,12 @@ export function LoopMode({ lines, audioUrl }: LoopModeProps) {
         onSeekHandled={clearSeek}
         playbackRate={rate}
       />
+
+      {!hasSrc && speechOk && (
+        <p className="text-xs text-muted">
+          尚未加入歌曲音檔時，「播放句子」會改用系統日文語音朗讀該句。
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted">播放速度</span>
@@ -215,12 +236,18 @@ export function LoopMode({ lines, audioUrl }: LoopModeProps) {
             </div>
             <button
               type="button"
-              onClick={() => playSentence(line.startTime)}
+              onClick={() => playSentence(line)}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent/15 px-2.5 py-2 text-xs font-medium text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
               aria-label={`播放第 ${index + 1} 句`}
             >
-              <SkipBack className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">播放句子</span>
+              {hasSrc ? (
+                <SkipBack className="h-3.5 w-3.5" />
+              ) : (
+                <Volume2 className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {hasSrc ? "播放句子" : "朗讀"}
+              </span>
               <span className="font-mono opacity-80">
                 {formatTime(line.startTime ?? 0)}
               </span>

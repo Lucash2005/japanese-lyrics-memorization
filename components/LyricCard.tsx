@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Volume2 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
 import { renderFurigana } from "@/lib/furigana";
 
@@ -10,7 +10,9 @@ interface LyricCardProps {
   showFurigana: boolean;
   showTranslation: boolean;
   japaneseVisible: boolean;
+  speechEnabled: boolean;
   onToggleJapanese: () => void;
+  onSpeak: () => void;
 }
 
 export default function LyricCard({
@@ -19,16 +21,12 @@ export default function LyricCard({
   showFurigana,
   showTranslation,
   japaneseVisible,
+  speechEnabled,
   onToggleJapanese,
+  onSpeak,
 }: LyricCardProps) {
   return (
-    <button
-      type="button"
-      onClick={onToggleJapanese}
-      className="lyric-card group w-full rounded-2xl bg-surface-elevated p-4 text-left ring-1 ring-border transition-all hover:ring-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:p-5"
-      aria-pressed={japaneseVisible}
-      aria-label={`第 ${index + 1} 句，點擊${japaneseVisible ? "隱藏" : "顯示"}日文歌詞`}
-    >
+    <div className="lyric-card group w-full rounded-2xl bg-surface-elevated p-4 ring-1 ring-border transition-all hover:ring-accent/40 sm:p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="font-mono text-[11px] tracking-wider text-muted">
           {String(index + 1).padStart(2, "0")}
@@ -38,40 +36,69 @@ export default function LyricCard({
             </span>
           )}
         </span>
-        <span className="flex items-center gap-1 text-[11px] text-muted transition-colors group-hover:text-accent">
-          {japaneseVisible ? (
-            <>
-              <EyeOff className="h-3.5 w-3.5" />
-              隱藏
-            </>
-          ) : (
-            <>
-              <Eye className="h-3.5 w-3.5" />
-              顯示
-            </>
+        <div className="flex items-center gap-1">
+          {speechEnabled && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSpeak();
+              }}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-accent ring-1 ring-accent/30 transition hover:bg-accent/15"
+              aria-label={`朗讀第 ${index + 1} 句`}
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              朗讀
+            </button>
           )}
-        </span>
+          <button
+            type="button"
+            onClick={onToggleJapanese}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted transition hover:text-accent"
+            aria-pressed={japaneseVisible}
+            aria-label={`${japaneseVisible ? "隱藏" : "顯示"}日文歌詞`}
+          >
+            {japaneseVisible ? (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                隱藏
+              </>
+            ) : (
+              <>
+                <Eye className="h-3.5 w-3.5" />
+                顯示
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      <div
-        className={`lyric-flip relative min-h-[2.75rem] overflow-hidden ${
-          japaneseVisible ? "is-visible" : "is-hidden"
-        }`}
+      <button
+        type="button"
+        onClick={onToggleJapanese}
+        className="w-full text-left focus-visible:outline-none"
+        aria-label={`第 ${index + 1} 句日文區域`}
       >
-        <p
-          className={`jp-line text-lg leading-relaxed text-ink sm:text-xl ${
-            japaneseVisible ? "opacity-100" : "opacity-0"
+        <div
+          className={`lyric-flip relative min-h-[2.75rem] overflow-hidden ${
+            japaneseVisible ? "is-visible" : "is-hidden"
           }`}
-          lang="ja"
         >
-          {showFurigana ? renderFurigana(line.furigana) : line.japanese}
-        </p>
-        {!japaneseVisible && (
-          <p className="absolute inset-0 flex items-center text-sm text-muted/80">
-            —— 點擊顯示日文 ——
+          <p
+            className={`jp-line text-lg leading-relaxed text-ink sm:text-xl ${
+              japaneseVisible ? "opacity-100" : "opacity-0"
+            }`}
+            lang="ja"
+          >
+            {showFurigana ? renderFurigana(line.furigana) : line.japanese}
           </p>
-        )}
-      </div>
+          {!japaneseVisible && (
+            <p className="absolute inset-0 flex items-center text-sm text-muted/80">
+              —— 點擊顯示日文 ——
+            </p>
+          )}
+        </div>
+      </button>
 
       {showTranslation && (
         <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-soft">
@@ -89,7 +116,7 @@ export default function LyricCard({
           />
         ))}
       </div>
-    </button>
+    </div>
   );
 }
 

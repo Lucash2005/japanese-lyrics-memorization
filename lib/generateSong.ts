@@ -97,39 +97,62 @@ artist 請標成「練習用（AI 原創）」。
     ? `歌名：${input.title}\n演唱者：${input.artist}\n\n日文歌詞：\n${input.japaneseText}`
     : `請以「${input.title}」／「${input.artist}」為靈感，創作原創練習歌詞（不是原曲歌詞）。`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`;
+  // Prefer current Flash models; fall back if one is retired.
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.0-flash-001",
+    "gemini-1.5-flash",
+  ];
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: `${systemRules}\n\n${userPrompt}` }],
+  let lastError = "Gemini 呼叫失敗";
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemRules}\n\n${userPrompt}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.4,
+          responseMimeType: "application/json",
         },
-      ],
-      generationConfig: {
-        temperature: 0.4,
-        responseMimeType: "application/json",
-      },
-    }),
-  });
+      }),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    if (res.status === 400 || res.status === 403) {
-      throw new Error("API Key 無效或無權限，請檢查 Gemini Key");
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      if (res.status === 400 || res.status === 403) {
+        throw new Error("API Key 無效或無權限，請檢查 Gemini Key");
+      }
+      // Try next model on 404 (retired model id)
+      if (res.status === 404) {
+        lastError = `Gemini 呼叫失敗（${res.status}）${errText.slice(0, 100)}`;
+        continue;
+      }
+      throw new Error(`Gemini 呼叫失敗（${res.status}）${errText.slice(0, 120)}`);
     }
-    throw new Error(`Gemini 呼叫失敗（${res.status}）${errText.slice(0, 120)}`);
+
+    const payload = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text =
+      payload.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") ||
+      "";
+    if (!text) throw new Error("AI 沒有回傳內容");
+
+    const parsed = extractJson(text);
+    return normalizeSong(
+      parsed,
+      input.title,
+      hasPaste ? input.artist : "練習用（AI 原創）"
+    );
   }
 
-  const payload = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = payload.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-  if (!text) throw new Error("AI 沒有回傳內容");
-
-  const parsed = extractJson(text);
-  return normalizeSong(parsed, input.title, hasPaste ? input.artist : "練習用（AI 原創）");
+  throw new Error(lastError);
 }

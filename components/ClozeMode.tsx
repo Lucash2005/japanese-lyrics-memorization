@@ -7,9 +7,13 @@ import {
   RotateCcw,
   ThumbsDown,
   ThumbsUp,
+  Volume2,
 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
 import { renderFurigana } from "@/lib/furigana";
+import { isSpeechSupported, speakJapanese, stopSpeaking } from "@/lib/tts";
+
+const SPEECH_PREF_KEY = "lyrics-speech-enabled-v1";
 
 interface ClozeModeProps {
   lines: Line[];
@@ -23,6 +27,20 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
   const [reviewed, setReviewed] = useState(0);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [speechOk, setSpeechOk] = useState(false);
+
+  useEffect(() => {
+    setSpeechOk(isSpeechSupported());
+    try {
+      const saved = localStorage.getItem(SPEECH_PREF_KEY);
+      if (saved === "0") setSpeechEnabled(false);
+      if (saved === "1") setSpeechEnabled(true);
+    } catch {
+      /* ignore */
+    }
+    return () => stopSpeaking();
+  }, []);
 
   const lineMap = useMemo(
     () => Object.fromEntries(lines.map((l) => [l.id, l])),
@@ -66,6 +84,18 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
     if (rest.length === 0) setDone(true);
   };
 
+  const handleReveal = () => {
+    setRevealed(true);
+    if (speechEnabled && speechOk && current) {
+      void speakJapanese(current.furigana || current.japanese).catch(() => {});
+    }
+  };
+
+  const handleSpeak = () => {
+    if (!current) return;
+    void speakJapanese(current.furigana || current.japanese).catch(() => {});
+  };
+
   if (done) {
     return (
       <div className="flex flex-col items-center gap-5 rounded-2xl bg-surface-elevated px-6 py-12 text-center ring-1 ring-border">
@@ -96,11 +126,39 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between text-xs text-muted">
+      <div className="flex items-center justify-between gap-2 text-xs text-muted">
         <span>
           剩餘 {queue.length} / {total} 句
         </span>
-        <span>已複習 {reviewed} 次</span>
+        <div className="flex items-center gap-2">
+          {speechOk && (
+            <button
+              type="button"
+              onClick={() => {
+                setSpeechEnabled((v) => {
+                  const next = !v;
+                  if (!next) stopSpeaking();
+                  try {
+                    localStorage.setItem(SPEECH_PREF_KEY, next ? "1" : "0");
+                  } catch {
+                    /* ignore */
+                  }
+                  return next;
+                });
+              }}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
+                speechEnabled
+                  ? "bg-accent/20 text-accent ring-1 ring-accent/40"
+                  : "bg-surface-elevated text-muted ring-1 ring-border"
+              }`}
+              aria-pressed={speechEnabled}
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              朗讀 {speechEnabled ? "開" : "關"}
+            </button>
+          )}
+          <span>已複習 {reviewed} 次</span>
+        </div>
       </div>
 
       <div className="h-1.5 overflow-hidden rounded-full bg-border">
@@ -155,30 +213,42 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
       {!revealed ? (
         <button
           type="button"
-          onClick={() => setRevealed(true)}
+          onClick={handleReveal}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-on-accent transition hover:brightness-110"
         >
           <Eye className="h-4 w-4" />
           顯示答案
         </button>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={handleHard}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-surface-elevated px-4 py-3 text-sm font-medium text-soft ring-1 ring-border transition hover:ring-rose-400/50 hover:text-rose-300"
-          >
-            <ThumbsDown className="h-4 w-4" />
-            重背
-          </button>
-          <button
-            type="button"
-            onClick={handleEasy}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent/20 px-4 py-3 text-sm font-medium text-accent ring-1 ring-accent/40 transition hover:bg-accent/30"
-          >
-            <ThumbsUp className="h-4 w-4" />
-            記住
-          </button>
+        <div className="flex flex-col gap-3">
+          {speechEnabled && speechOk && (
+            <button
+              type="button"
+              onClick={handleSpeak}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-elevated px-4 py-2.5 text-sm font-medium text-accent ring-1 ring-accent/30"
+            >
+              <Volume2 className="h-4 w-4" />
+              再朗讀一次
+            </button>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleHard}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-surface-elevated px-4 py-3 text-sm font-medium text-soft ring-1 ring-border transition hover:ring-rose-400/50 hover:text-rose-300"
+            >
+              <ThumbsDown className="h-4 w-4" />
+              重背
+            </button>
+            <button
+              type="button"
+              onClick={handleEasy}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent/20 px-4 py-3 text-sm font-medium text-accent ring-1 ring-accent/40 transition hover:bg-accent/30"
+            >
+              <ThumbsUp className="h-4 w-4" />
+              記住
+            </button>
+          </div>
         </div>
       )}
     </div>

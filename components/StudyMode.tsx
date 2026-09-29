@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Languages, Type } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Languages, Type, Volume2 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
 import LyricCard from "./LyricCard";
+import { isSpeechSupported, speakJapanese, stopSpeaking } from "@/lib/tts";
+
+const SPEECH_PREF_KEY = "lyrics-speech-enabled-v1";
 
 interface StudyModeProps {
   lines: Line[];
@@ -12,12 +15,50 @@ interface StudyModeProps {
 export default function StudyMode({ lines }: StudyModeProps) {
   const [showFurigana, setShowFurigana] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [speechOk, setSpeechOk] = useState(false);
   const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(lines.map((l) => [l.id, true]))
   );
 
+  useEffect(() => {
+    setSpeechOk(isSpeechSupported());
+    try {
+      const saved = localStorage.getItem(SPEECH_PREF_KEY);
+      if (saved === "0") setSpeechEnabled(false);
+      if (saved === "1") setSpeechEnabled(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
+
+  const toggleSpeech = () => {
+    setSpeechEnabled((v) => {
+      const next = !v;
+      if (!next) stopSpeaking();
+      try {
+        localStorage.setItem(SPEECH_PREF_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   const toggleJapanese = (id: string) => {
     setVisibleMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const onSpeak = async (line: Line) => {
+    try {
+      await speakJapanese(line.furigana || line.japanese);
+    } catch {
+      /* iOS may need Settings → voice download; fail quietly in UI */
+    }
   };
 
   return (
@@ -35,9 +76,20 @@ export default function StudyMode({ lines }: StudyModeProps) {
           icon={<Languages className="h-3.5 w-3.5" />}
           label="中文翻譯"
         />
+        {speechOk && (
+          <ToggleChip
+            active={speechEnabled}
+            onClick={toggleSpeech}
+            icon={<Volume2 className="h-3.5 w-3.5" />}
+            label="朗讀"
+          />
+        )}
       </div>
 
-      <p className="text-xs text-muted">點擊卡片可顯示／隱藏該句日文歌詞</p>
+      <p className="text-xs text-muted">
+        點擊卡片可顯示／隱藏日文
+        {speechEnabled ? "；點「朗讀」播放該句日文語音" : ""}
+      </p>
 
       <div className="flex flex-col gap-3">
         {lines.map((line, index) => (
@@ -48,7 +100,9 @@ export default function StudyMode({ lines }: StudyModeProps) {
             showFurigana={showFurigana}
             showTranslation={showTranslation}
             japaneseVisible={visibleMap[line.id] ?? true}
+            speechEnabled={speechEnabled && speechOk}
             onToggleJapanese={() => toggleJapanese(line.id)}
+            onSpeak={() => onSpeak(line)}
           />
         ))}
       </div>
