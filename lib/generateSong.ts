@@ -99,57 +99,76 @@ artist 請標成「練習用（AI 原創）」。
 
   // REST URL uses /models/{id}:generateContent (SDK 參數則不加 models/ 前綴)
   const models = await resolveGeminiModels(key);
+  const body = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: `${systemRules}\n\n${userPrompt}` }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.4,
+      responseMimeType: "application/json",
+    },
+  });
 
   let lastError = "Gemini 呼叫失敗：找不到可用模型";
-  for (const model of models) {
+  for (const model of models.slice(0, 6)) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `${systemRules}\n\n${userPrompt}` }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.4,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
 
-    if (!res.ok) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+
+      if (res.ok) {
+        const payload = (await res.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const text =
+          payload.candidates?.[0]?.content?.parts
+            ?.map((p) => p.text || "")
+            .join("") || "";
+        if (!text) {
+          lastError = "AI 沒有回傳內容，請稍後再試";
+          break;
+        }
+        const parsed = extractJson(text);
+        return normalizeSong(
+          parsed,
+          input.title,
+          hasPaste ? input.artist : "練習用（AI 原創）"
+        );
+      }
+
       const errText = await res.text().catch(() => "");
       if (res.status === 400 || res.status === 403) {
         throw new Error("API Key 無效或無權限，請檢查 Gemini Key");
       }
-      // Try next model on 404 (retired model id)
       if (res.status === 404) {
-        lastError = `模型 ${model} 不可用（404），已改試下一個`;
+        lastError = `模型 ${model} 不可用，改試下一個`;
+        break; // next model
+      }
+      if (res.status === 429 || res.status === 503) {
+        lastError =
+          "Gemini 目前忙碌或額度繁忙（503/429），請稍等約 30 秒再試；也可先「用貼上的歌詞建立」不必等 AI。";
+        // backoff then retry same model, then fall through to next model
+        await sleep(800 * (attempt + 1) * (attempt + 1));
         continue;
       }
-      throw new Error(`Gemini 呼叫失敗（${res.status}）${errText.slice(0, 120)}`);
+      throw new Error(
+        `Gemini 呼叫失敗（${res.status}）${errText.slice(0, 120)}`
+      );
     }
-
-    const payload = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text =
-      payload.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") ||
-      "";
-    if (!text) throw new Error("AI 沒有回傳內容");
-
-    const parsed = extractJson(text);
-    return normalizeSong(
-      parsed,
-      input.title,
-      hasPaste ? input.artist : "練習用（AI 原創）"
-    );
   }
 
   throw new Error(lastError);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Prefer live models from ListModels; fall back to known Flash IDs. */
