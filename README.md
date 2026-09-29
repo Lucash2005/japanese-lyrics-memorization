@@ -4,39 +4,46 @@
 
 技術：**Next.js (App Router)**、**TypeScript**、**Tailwind CSS**、**Lucide React**。
 
-## 本機執行
+## 只用 GitHub 上線（給 iPhone 用、不開電腦）
+
+程式會靜態匯出，靠 **GitHub Pages** 託管，不必 Vercel。
+
+### 第一次設定
+
+1. 在 Cursor 點 **Create repo**，把專案建到你的 GitHub  
+   （或自己新建空 repo，把程式 push 上去）
+2. GitHub 專案頁 → **Settings** → **Pages**
+3. **Source** 選 **GitHub Actions**
+4. 確認已 push 到 `main`（會自動跑 `.github/workflows/deploy-pages.yml`）
+5. 等 Actions 變綠燈後，網址為：
+
+   `https://<你的帳號>.github.io/<repo名稱>/`
+
+   例如：`https://lucas-hsieh.github.io/japanese-lyrics-memorization/`
+
+6. iPhone Safari 打開該網址 → 分享 → **加入主畫面**
+
+之後只要 `git push`，網站會自動更新。
+
+### 本機開發
 
 ```bash
 npm install
 npm run dev
 ```
 
-電腦瀏覽器開啟： [http://localhost:43123](http://localhost:43123)
+開 [http://localhost:43123](http://localhost:43123)
 
-### 手機長期使用（不開電腦）
-
-把網站部署到 Vercel 後，iPhone 用 Safari 開網址即可，不必再開電腦：
-
-1. 用電腦或 Cursor 部署一次（見下方 claim / `vercel`）
-2. iPhone Safari 打開公開網址
-3. 分享 → **加入主畫面**，之後像 App 一樣點開
-
-### 用 iPhone 連本機開發伺服器（同一 Wi‑Fi）
-
-1. 在**電腦**上執行 `npm run dev`（不要關）
-2. 查電腦區網 IP（Mac：`ipconfig getifaddr en0`）
-3. iPhone 與電腦連**同一個 Wi‑Fi**
-4. Safari 輸入：`http://你的電腦IP:43123`
-
-> 不要在手機開 `localhost` / `127.0.0.1`。雲端預覽網址也無法直接給 iPhone 長期用。
-
-### 其他指令
+預覽正式靜態檔：
 
 ```bash
-npm run build   # 正式建置
-npm run start   # 用正式建置啟動（同樣可用區網 IP 開）
-npm run lint
+npm run build
+npx --yes serve out -p 43123
 ```
+
+### 區網用 iPhone 連本機（可選）
+
+電腦跑 `npm run dev`，手機與電腦同一 Wi‑Fi，開 `http://電腦IP:43123`。
 
 ## 功能
 
@@ -46,7 +53,7 @@ npm run lint
 | B | 遮蔽填空 | 顯示答案後「重背／記住」調整熟練度 |
 | C | 單句循環 | 播放速度與依 `startTime` 跳句 |
 
-熟練度（0–5）會存在瀏覽器 `localStorage`。
+熟練度（0–5）存在瀏覽器 `localStorage`。
 
 ## 專案結構
 
@@ -56,6 +63,7 @@ components/          # ModeSwitcher、StudyMode、ClozeMode、LoopMode…
 data/sampleSong.json # 示範歌「桜の道」
 types/lyrics.ts
 lib/furigana.tsx
+.github/workflows/   # GitHub Pages 自動部署
 ```
 
 ## 換成自己的歌
@@ -65,4 +73,4 @@ lib/furigana.tsx
 - `japanese`、`furigana`（例如 `桜(さくら)の道(みち)`）、`translation`
 - `mastery`（從頭用 `0`）
 - 可選 `startTime`、`hint`
-- 歌曲層級可選 `audioUrl`（單句循環真實播放）
+- 歌曲層級可選 `audioUrl`
