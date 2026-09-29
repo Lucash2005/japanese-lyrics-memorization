@@ -97,15 +97,10 @@ artist 請標成「練習用（AI 原創）」。
     ? `歌名：${input.title}\n演唱者：${input.artist}\n\n日文歌詞：\n${input.japaneseText}`
     : `請以「${input.title}」／「${input.artist}」為靈感，創作原創練習歌詞（不是原曲歌詞）。`;
 
-  // Prefer current Flash models; fall back if one is retired.
-  const models = [
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash-001",
-    "gemini-1.5-flash",
-  ];
+  // REST URL uses /models/{id}:generateContent (SDK 參數則不加 models/ 前綴)
+  const models = await resolveGeminiModels(key);
 
-  let lastError = "Gemini 呼叫失敗";
+  let lastError = "Gemini 呼叫失敗：找不到可用模型";
   for (const model of models) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
     const res = await fetch(url, {
@@ -132,7 +127,7 @@ artist 請標成「練習用（AI 原創）」。
       }
       // Try next model on 404 (retired model id)
       if (res.status === 404) {
-        lastError = `Gemini 呼叫失敗（${res.status}）${errText.slice(0, 100)}`;
+        lastError = `模型 ${model} 不可用（404），已改試下一個`;
         continue;
       }
       throw new Error(`Gemini 呼叫失敗（${res.status}）${errText.slice(0, 120)}`);
@@ -155,4 +150,47 @@ artist 請標成「練習用（AI 原創）」。
   }
 
   throw new Error(lastError);
+}
+
+/** Prefer live models from ListModels; fall back to known Flash IDs. */
+async function resolveGeminiModels(apiKey: string): Promise<string[]> {
+  const fallback = [
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
+  ];
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    );
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as {
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+    };
+    const generate = (data.models || [])
+      .filter((m) =>
+        (m.supportedGenerationMethods || []).includes("generateContent")
+      )
+      .map((m) => (m.name || "").replace(/^models\//, ""))
+      .filter(Boolean);
+
+    const preferred = generate.filter(
+      (id) =>
+        /flash/i.test(id) &&
+        !/embed|tts|image|vision|robotics|computer/i.test(id)
+    );
+    const ordered = [
+      ...preferred.filter((id) => /2\.5|flash-latest|2\.0/i.test(id)),
+      ...preferred,
+      ...generate.filter((id) => /pro/i.test(id)),
+    ];
+    const unique = [...new Set(ordered)];
+    return unique.length > 0 ? unique : fallback;
+  } catch {
+    return fallback;
+  }
 }
