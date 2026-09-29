@@ -1,0 +1,62 @@
+{
+  "id": "sakura-michi",
+  "title": "桜の道",
+  "artist": "練習用オリジナル",
+  "audioUrl": "",
+  "lines": [
+    {
+      "id": "line-1",
+      "japanese": "桜の道をゆっくり歩こう",
+      "furigana": "桜(さくら)の道(みち)をゆっくり歩(ある)こう",
+      "translation": "慢慢走在櫻花大道上吧",
+      "mastery": 0,
+      "startTime": 0,
+      "hint": "さ…"
+    },
+    {
+      "id": "line-2",
+      "japanese": "風がそっと髪を揺らす",
+      "furigana": "風(かぜ)がそっと髪(かみ)を揺(ゆ)らす",
+      "translation": "風輕輕地搖晃著頭髮",
+      "mastery": 0,
+      "startTime": 8,
+      "hint": "か…"
+    },
+    {
+      "id": "line-3",
+      "japanese": "遠い空に白い雲が流れる",
+      "furigana": "遠(とお)い空(そら)に白(しろ)い雲(くも)が流(なが)れる",
+      "translation": "遠方的天空漂著白雲",
+      "mastery": 0,
+      "startTime": 16,
+      "hint": "と…"
+    },
+    {
+      "id": "line-4",
+      "japanese": "君の声がまだ聞こえる気がする",
+      "furigana": "君(きみ)の声(こえ)がまだ聞(き)こえる気(き)がする",
+      "translation": "彷彿還能聽見你的聲音",
+      "mastery": 0,
+      "startTime": 24,
+      "hint": "き…"
+    },
+    {
+      "id": "line-5",
+      "japanese": "忘れないでこの春の日を",
+      "furigana": "忘(わす)れないでこの春(はる)の日(ひ)を",
+      "translation": "別忘記這個春天的日子",
+      "mastery": 0,
+      "startTime": 32,
+      "hint": "わ…"
+    },
+    {
+      "id": "line-6",
+      "japanese": "また会えるまでここで待っている",
+      "furigana": "また会(あ)えるまでここで待(ま)っている",
+      "translation": "直到再相見為止，我會在這裡等你",
+      "mastery": 0,
+      "startTime": 40,
+      "hint": "ま…"
+    }
+  ]
+}
