@@ -85,7 +85,7 @@ export default function LyricCard({
           }`}
         >
           <p
-            className={`jp-line text-lg leading-relaxed text-ink sm:text-xl ${
+            className={`jp-line leading-relaxed text-ink ${
               japaneseVisible ? "opacity-100" : "opacity-0"
             }`}
             lang="ja"
@@ -101,7 +101,7 @@ export default function LyricCard({
       </button>
 
       {showTranslation && (
-        <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-soft">
+        <p className="translation-line mt-3 border-t border-border pt-3 leading-relaxed text-soft">
           {line.translation}
         </p>
       )}

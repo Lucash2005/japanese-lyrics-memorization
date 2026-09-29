@@ -11,6 +11,9 @@
   --soft: #c4c9d6;
   --accent: #e8a87c;
   --ink: #0c0e12;
+  --furigana-size: 0.48em;
+  --translation-size: 0.875rem;
+  --jp-line-size: 1.125rem;
 }
 
 @theme inline {
@@ -52,6 +55,7 @@ body {
 .jp-line {
   font-family: var(--font-jp);
   letter-spacing: 0.02em;
+  font-size: var(--jp-line-size, 1.125rem);
 }
 
 .ruby {
@@ -59,11 +63,16 @@ body {
 }
 
 .ruby rt {
-  font-size: 0.45em;
+  font-size: var(--furigana-size, 0.48em);
   color: var(--muted);
   font-weight: 400;
   letter-spacing: 0;
   user-select: none;
+}
+
+.translation-line {
+  font-size: var(--translation-size, 0.875rem);
+  line-height: 1.55;
 }
 
 .lyric-flip {

@@ -171,7 +171,7 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
       </div>
 
       <div className="relative overflow-hidden rounded-2xl bg-surface-elevated p-6 ring-1 ring-border sm:p-8">
-        <p className="mb-6 text-center text-base leading-relaxed text-soft sm:text-lg">
+        <p className="translation-line mb-6 text-center leading-relaxed text-soft">
           {current.translation}
         </p>
 
@@ -181,7 +181,7 @@ export default function ClozeMode({ lines, onMasteryChange }: ClozeModeProps) {
           }`}
         >
           {revealed ? (
-            <p className="jp-line text-xl leading-relaxed text-ink sm:text-2xl" lang="ja">
+            <p className="jp-line leading-relaxed text-ink" lang="ja">
               {renderFurigana(current.furigana)}
             </p>
           ) : (

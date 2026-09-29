@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Languages, Type, Volume2 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
 import LyricCard from "./LyricCard";
+import DisplaySettings from "./DisplaySettings";
 import { isSpeechSupported, speakJapanese, stopSpeaking } from "@/lib/tts";
 
 const SPEECH_PREF_KEY = "lyrics-speech-enabled-v1";
@@ -17,6 +18,7 @@ export default function StudyMode({ lines }: StudyModeProps) {
   const [showTranslation, setShowTranslation] = useState(true);
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [speechOk, setSpeechOk] = useState(false);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(lines.map((l) => [l.id, true]))
   );
@@ -55,9 +57,12 @@ export default function StudyMode({ lines }: StudyModeProps) {
 
   const onSpeak = async (line: Line) => {
     try {
+      setSpeakingId(line.id);
       await speakJapanese(line.furigana || line.japanese);
     } catch {
-      /* iOS may need Settings → voice download; fail quietly in UI */
+      /* ignore */
+    } finally {
+      setSpeakingId(null);
     }
   };
 
@@ -86,9 +91,12 @@ export default function StudyMode({ lines }: StudyModeProps) {
         )}
       </div>
 
+      <DisplaySettings />
+
       <p className="text-xs text-muted">
         點擊卡片可顯示／隱藏日文
-        {speechEnabled ? "；點「朗讀」播放該句日文語音" : ""}
+        {speechEnabled ? "；點「朗讀」播放該句（可在設定選 AI 人聲）" : ""}
+        {speakingId ? " · 播放中…" : ""}
       </p>
 
       <div className="flex flex-col gap-3">
