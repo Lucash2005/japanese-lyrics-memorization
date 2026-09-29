@@ -1,65 +1,117 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Music2 } from "lucide-react";
 import type { AppMode, Line, Song } from "@/types/lyrics";
 import ModeSwitcher from "./ModeSwitcher";
 import StudyMode from "./StudyMode";
 import ClozeMode from "./ClozeMode";
 import LoopMode from "./LoopMode";
-
-const STORAGE_KEY = "lyrics-mastery-v1";
+import SongPicker from "./SongPicker";
+import AddSongDialog from "./AddSongDialog";
+import {
+  applyMastery,
+  loadActiveSongId,
+  loadLibrary,
+  loadMasteryMap,
+  saveActiveSongId,
+  saveLibrary,
+  saveMasteryMap,
+  upsertSong,
+} from "@/lib/songLibrary";
 
 interface LyricsAppProps {
-  song: Song;
+  seedSong: Song;
 }
 
-export default function LyricsApp({ song }: LyricsAppProps) {
+export default function LyricsApp({ seedSong }: LyricsAppProps) {
+  const [ready, setReady] = useState(false);
+  const [songs, setSongs] = useState<Song[]>([seedSong]);
+  const [activeId, setActiveId] = useState(seedSong.id);
   const [mode, setMode] = useState<AppMode>("study");
-  const [lines, setLines] = useState<Line[]>(song.lines);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as Record<string, number>;
-      setLines((prev) =>
-        prev.map((line) =>
-          typeof saved[line.id] === "number"
-            ? { ...line, mastery: Math.min(5, Math.max(0, saved[line.id])) }
-            : line
-        )
-      );
-    } catch {
-      /* ignore corrupt storage */
-    }
-  }, []);
+    const library = loadLibrary(seedSong);
+    const mastery = loadMasteryMap();
+    const withMastery = library.map((s) => applyMastery(s, mastery));
+    setSongs(withMastery);
+    const savedId = loadActiveSongId(seedSong.id);
+    setActiveId(
+      withMastery.some((s) => s.id === savedId) ? savedId : withMastery[0].id
+    );
+    setReady(true);
+  }, [seedSong]);
 
-  const persistMastery = useCallback((next: Line[]) => {
-    const map: Record<string, number> = {};
-    for (const line of next) map[line.id] = line.mastery;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-    } catch {
-      /* quota / private mode */
-    }
+  const song = useMemo(
+    () => songs.find((s) => s.id === activeId) || songs[0] || seedSong,
+    [songs, activeId, seedSong]
+  );
+
+  const lines = song.lines;
+
+  const persistSongs = useCallback((next: Song[]) => {
+    setSongs(next);
+    saveLibrary(next);
   }, []);
 
   const onMasteryChange = useCallback(
     (lineId: string, mastery: number) => {
-      setLines((prev) => {
-        const next = prev.map((l) =>
-          l.id === lineId ? { ...l, mastery } : l
-        );
-        persistMastery(next);
-        return next;
-      });
+      const map = loadMasteryMap();
+      map[lineId] = mastery;
+      saveMasteryMap(map);
+
+      persistSongs(
+        songs.map((s) =>
+          s.id === song.id
+            ? {
+                ...s,
+                lines: s.lines.map((l) =>
+                  l.id === lineId ? { ...l, mastery } : l
+                ),
+              }
+            : s
+        )
+      );
     },
-    [persistMastery]
+    [persistSongs, song.id, songs]
   );
 
+  const onSelect = (id: string) => {
+    setActiveId(id);
+    saveActiveSongId(id);
+    setMode("study");
+  };
+
+  const onCreated = (created: Song) => {
+    const next = upsertSong(songs, created);
+    persistSongs(next);
+    setActiveId(created.id);
+    saveActiveSongId(created.id);
+    setMode("study");
+  };
+
+  const onDelete = (id: string) => {
+    if (songs.length <= 1) return;
+    if (id === seedSong.id) return;
+    const next = songs.filter((s) => s.id !== id);
+    persistSongs(next);
+    const fallback = next[0]?.id || seedSong.id;
+    setActiveId(fallback);
+    saveActiveSongId(fallback);
+  };
+
   const avgMastery =
-    lines.reduce((sum, l) => sum + l.mastery, 0) / Math.max(1, lines.length);
+    lines.reduce((sum: number, l: Line) => sum + l.mastery, 0) /
+    Math.max(1, lines.length);
+
+  if (!ready) {
+    return (
+      <div className="mx-auto flex w-full max-w-lg flex-1 items-center justify-center px-4 py-20 text-sm text-muted">
+        載入曲庫中…
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-4 py-8 sm:max-w-xl sm:py-10">
@@ -70,8 +122,20 @@ export default function LyricsApp({ song }: LyricsAppProps) {
             練歌 · 日文歌詞背誦
           </p>
         </div>
+
+        <SongPicker
+          songs={songs}
+          activeId={song.id}
+          onSelect={onSelect}
+          onAdd={() => setAddOpen(true)}
+          onDelete={onDelete}
+        />
+
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl" lang="ja">
+          <h1
+            className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
+            lang="ja"
+          >
             {song.title}
           </h1>
           <p className="mt-1 text-sm text-muted">{song.artist}</p>
@@ -86,18 +150,28 @@ export default function LyricsApp({ song }: LyricsAppProps) {
       <ModeSwitcher mode={mode} onChange={setMode} />
 
       <main>
-        {mode === "study" && <StudyMode lines={lines} />}
+        {mode === "study" && <StudyMode key={song.id} lines={lines} />}
         {mode === "cloze" && (
-          <ClozeMode lines={lines} onMasteryChange={onMasteryChange} />
+          <ClozeMode
+            key={song.id}
+            lines={lines}
+            onMasteryChange={onMasteryChange}
+          />
         )}
         {mode === "loop" && (
-          <LoopMode lines={lines} audioUrl={song.audioUrl} />
+          <LoopMode key={song.id} lines={lines} audioUrl={song.audioUrl} />
         )}
       </main>
 
       <footer className="pb-6 text-center text-[11px] text-muted/70">
-        點擊學習 · 主動回憶 · 單句循環 — 一次練熟一首歌
+        新增歌曲會存在此手機瀏覽器，不必重新編譯
       </footer>
+
+      <AddSongDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={onCreated}
+      />
     </div>
   );
 }
