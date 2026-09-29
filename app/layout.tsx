@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const basePath = process.env.BASE_PATH?.replace(/\/$/, "") || "";
+
 export const metadata: Metadata = {
   title: "練歌 · 日文歌詞背誦",
   description:
@@ -13,12 +15,20 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      {
+        url: `${basePath}/icon-192.png`,
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: `${basePath}/icon-512.png`,
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [{ url: `${basePath}/apple-touch-icon.png`, sizes: "180x180" }],
   },
-  manifest: "/manifest.webmanifest",
+  manifest: `${basePath}/manifest.webmanifest`,
 };
 
 export const viewport: Viewport = {
