@@ -9,6 +9,7 @@ import ClozeMode from "./ClozeMode";
 import LoopMode from "./LoopMode";
 import SongPicker from "./SongPicker";
 import AddSongDialog from "./AddSongDialog";
+import { APP_UPDATED_AT, APP_VERSION, formatUpdatedAt } from "@/lib/version";
 import {
   applyMastery,
   loadActiveSongId,
@@ -163,8 +164,11 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
         )}
       </main>
 
-      <footer className="pb-6 text-center text-[11px] text-muted/70">
-        新增歌曲會存在此手機瀏覽器，不必重新編譯
+      <footer className="space-y-1 pb-6 text-center text-[11px] text-muted/70">
+        <p>新增歌曲會存在此手機瀏覽器，不必重新編譯</p>
+        <p className="font-mono text-muted/80">
+          v{APP_VERSION} · 更新 {formatUpdatedAt(APP_UPDATED_AT)}
+        </p>
       </footer>
 
       <AddSongDialog

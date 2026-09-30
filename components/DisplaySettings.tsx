@@ -121,6 +121,12 @@ export default function DisplaySettings() {
                     請在「新增歌曲」填入 Gemini API Key，才能產生接近人聲的音檔。無 Key 時會自動改用系統語音。
                   </p>
                 )}
+                <p className="rounded-xl bg-surface px-3 py-2 text-[11px] leading-relaxed text-muted ring-1 ring-border">
+                  為何有時只能用系統語音？
+                  <br />
+                  1) 沒填／Key 無效　2) Gemini 忙碌（503）或 TTS 模型不可用　3) 網路失敗。
+                  這時會自動改播系統日文語音，不代表朗讀壞掉。
+                </p>
                 <label className="block space-y-1.5">
                   <span className="text-[11px] text-muted">人聲角色</span>
                   <select

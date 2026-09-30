@@ -269,27 +269,39 @@ async function playObjectUrl(url: string, rate = 1): Promise<void> {
 /**
  * Speak Japanese. Uses Gemini neural TTS when mode=neural + API key,
  * otherwise falls back to system speechSynthesis.
+ * Returns which engine actually played.
  */
 export async function speakJapanese(
   text: string,
   opts?: { rate?: number; preferNeural?: boolean }
-): Promise<void> {
+): Promise<{ engine: "neural" | "system"; fallbackReason?: string }> {
   const content = plainJapaneseForSpeech(text);
-  if (!content) return;
+  if (!content) return { engine: "system" };
 
   const mode = opts?.preferNeural === false ? "system" : loadVoiceMode();
   const apiKey = loadApiKey();
 
-  if (mode === "neural" && apiKey) {
+  if (mode === "neural") {
+    if (!apiKey) {
+      await speakSystem(content, opts);
+      return {
+        engine: "system",
+        fallbackReason: "尚未設定 Gemini API Key，已改用系統語音",
+      };
+    }
     try {
       const voice = loadNeuralVoice();
       const url = await fetchNeuralAudio(content, apiKey, voice);
       await playObjectUrl(url, opts?.rate ?? 1);
-      return;
-    } catch {
-      // Fall through to system voice
+      return { engine: "neural" };
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "AI 人聲失敗，已改用系統語音";
+      await speakSystem(content, opts);
+      return { engine: "system", fallbackReason: msg };
     }
   }
 
   await speakSystem(content, opts);
+  return { engine: "system" };
 }

@@ -19,6 +19,7 @@ export default function StudyMode({ lines }: StudyModeProps) {
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [speechOk, setSpeechOk] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(lines.map((l) => [l.id, true]))
   );
@@ -58,9 +59,16 @@ export default function StudyMode({ lines }: StudyModeProps) {
   const onSpeak = async (line: Line) => {
     try {
       setSpeakingId(line.id);
-      await speakJapanese(line.furigana || line.japanese);
+      setVoiceHint(null);
+      const result = await speakJapanese(line.furigana || line.japanese);
+      if (result.fallbackReason) {
+        setVoiceHint(result.fallbackReason);
+      } else if (result.engine === "neural") {
+        setVoiceHint("AI 人聲播放中／完成");
+        window.setTimeout(() => setVoiceHint(null), 2000);
+      }
     } catch {
-      /* ignore */
+      setVoiceHint("朗讀失敗，請檢查系統日文語音設定");
     } finally {
       setSpeakingId(null);
     }
@@ -98,6 +106,11 @@ export default function StudyMode({ lines }: StudyModeProps) {
         {speechEnabled ? "；點「朗讀」播放該句（可在設定選 AI 人聲）" : ""}
         {speakingId ? " · 播放中…" : ""}
       </p>
+      {voiceHint && (
+        <p className="rounded-xl bg-surface-elevated px-3 py-2 text-[11px] leading-relaxed text-accent ring-1 ring-accent/30">
+          {voiceHint}
+        </p>
+      )}
 
       <div className="flex flex-col gap-3">
         {lines.map((line, index) => (
