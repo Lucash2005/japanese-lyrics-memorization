@@ -64,8 +64,10 @@ export default function StudyMode({ lines }: StudyModeProps) {
       if (result.fallbackReason) {
         setVoiceHint(result.fallbackReason);
       } else if (result.engine === "neural") {
-        setVoiceHint("AI 人聲播放中／完成");
-        window.setTimeout(() => setVoiceHint(null), 2000);
+        setVoiceHint(
+          result.fromCache ? "播放已存音檔（不需 Key）" : "AI 人聲已產生並保存"
+        );
+        window.setTimeout(() => setVoiceHint(null), 2200);
       }
     } catch {
       setVoiceHint("朗讀失敗，請檢查系統日文語音設定");

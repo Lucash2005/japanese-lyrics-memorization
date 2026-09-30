@@ -16,6 +16,8 @@ import {
   NEURAL_VOICES,
   saveNeuralVoice,
   saveVoiceMode,
+  countCachedNeuralClips,
+  clearCachedNeuralClips,
   type VoiceMode,
 } from "@/lib/tts";
 
@@ -25,6 +27,11 @@ export default function DisplaySettings() {
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("system");
   const [neuralVoice, setNeuralVoice] = useState("Kore");
   const [hasKey, setHasKey] = useState(false);
+  const [cachedCount, setCachedCount] = useState(0);
+
+  const refreshCacheCount = async () => {
+    setCachedCount(await countCachedNeuralClips());
+  };
 
   useEffect(() => {
     const loaded = loadDisplaySizes();
@@ -33,6 +40,7 @@ export default function DisplaySettings() {
     setVoiceMode(loadVoiceMode());
     setNeuralVoice(loadNeuralVoice());
     setHasKey(Boolean(loadApiKey()));
+    void refreshCacheCount();
   }, []);
 
   const updateSizes = (patch: Partial<DisplaySizes>) => {
@@ -122,11 +130,24 @@ export default function DisplaySettings() {
                   </p>
                 )}
                 <p className="rounded-xl bg-surface px-3 py-2 text-[11px] leading-relaxed text-muted ring-1 ring-border">
-                  為何有時只能用系統語音？
+                  已產生的 AI 音檔會存在這支手機（目前 {cachedCount} 段）。
                   <br />
-                  1) 沒填／Key 無效　2) Gemini 忙碌（503）或 TTS 模型不可用　3) 網路失敗。
-                  這時會自動改播系統日文語音，不代表朗讀壞掉。
+                  <strong className="text-soft">重播不需要 Key</strong>；只有「第一次產生」或「換音色／換句子」才需要 Key。
+                  <br />
+                  若 Key 失效或 Gemini 忙碌，尚未快取的句子會改用系統語音。
                 </p>
+                {cachedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await clearCachedNeuralClips();
+                      await refreshCacheCount();
+                    }}
+                    className="text-[11px] text-rose-300 underline-offset-2 hover:underline"
+                  >
+                    清除已存 AI 音檔（{cachedCount}）
+                  </button>
+                )}
                 <label className="block space-y-1.5">
                   <span className="text-[11px] text-muted">人聲角色</span>
                   <select

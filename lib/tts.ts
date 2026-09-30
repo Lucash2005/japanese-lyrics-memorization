@@ -9,6 +9,94 @@ export type VoiceMode = "system" | "neural";
 const audioCache = new Map<string, string>(); // text+voice -> object URL
 let currentAudio: HTMLAudioElement | null = null;
 let voicesReady = false;
+const IDB_NAME = "lyrics-tts-cache-v1";
+const IDB_STORE = "clips";
+
+function cacheKey(voiceName: string, content: string) {
+  return `${voiceName}::${content}`;
+}
+
+function openAudioDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("IndexedDB 開啟失敗"));
+  });
+}
+
+async function idbGetClip(key: string): Promise<Blob | null> {
+  try {
+    const db = await openAudioDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(key);
+      req.onsuccess = () => {
+        const val = req.result;
+        resolve(val instanceof Blob ? val : null);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function idbPutClip(key: string, blob: Blob): Promise<void> {
+  try {
+    const db = await openAudioDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(blob, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
+/** How many AI clips are stored locally (no Key needed to replay). */
+export async function countCachedNeuralClips(): Promise<number> {
+  try {
+    const db = await openAudioDb();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return 0;
+  }
+}
+
+export async function clearCachedNeuralClips(): Promise<void> {
+  for (const url of audioCache.values()) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
+  }
+  audioCache.clear();
+  try {
+    const db = await openAudioDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    /* ignore */
+  }
+}
 
 const TTS_MODELS = [
   "gemini-2.5-flash-preview-tts",
@@ -173,14 +261,35 @@ function parseMimeRate(mime: string | undefined): number {
   return m ? Number(m[1]) : 24000;
 }
 
+async function resolveCachedObjectUrl(
+  key: string
+): Promise<string | null> {
+  const mem = audioCache.get(key);
+  if (mem) return mem;
+  const blob = await idbGetClip(key);
+  if (!blob) return null;
+  const objectUrl = URL.createObjectURL(blob);
+  audioCache.set(key, objectUrl);
+  return objectUrl;
+}
+
+/**
+ * Get playable neural audio URL.
+ * - Cached clips play without API Key.
+ * - Missing clips require apiKey to generate once, then they are saved locally.
+ */
 async function fetchNeuralAudio(
   content: string,
-  apiKey: string,
+  apiKey: string | null,
   voiceName: string
-): Promise<string> {
-  const cacheKey = `${voiceName}::${content}`;
-  const cached = audioCache.get(cacheKey);
-  if (cached) return cached;
+): Promise<{ url: string; fromCache: boolean }> {
+  const key = cacheKey(voiceName, content);
+  const cached = await resolveCachedObjectUrl(key);
+  if (cached) return { url: cached, fromCache: true };
+
+  if (!apiKey) {
+    throw new Error("此句尚未產生 AI 音檔，且沒有 API Key，無法新產生");
+  }
 
   let lastError = "AI 人聲目前不可用";
   for (const model of TTS_MODELS) {
@@ -231,18 +340,19 @@ async function fetchNeuralAudio(
       continue;
     }
 
-    const rate = parseMimeRate(inline.mimeType);
+    const sampleRate = parseMimeRate(inline.mimeType);
     const blob =
       inline.mimeType?.includes("wav") || inline.mimeType?.includes("mp3")
         ? new Blob(
             [Uint8Array.from(atob(inline.data), (c) => c.charCodeAt(0))],
             { type: inline.mimeType || "audio/wav" }
           )
-        : pcm16ToWavBlob(inline.data, rate);
+        : pcm16ToWavBlob(inline.data, sampleRate);
 
+    await idbPutClip(key, blob);
     const objectUrl = URL.createObjectURL(blob);
-    audioCache.set(cacheKey, objectUrl);
-    return objectUrl;
+    audioCache.set(key, objectUrl);
+    return { url: objectUrl, fromCache: false };
   }
 
   throw new Error(lastError);
@@ -269,31 +379,28 @@ async function playObjectUrl(url: string, rate = 1): Promise<void> {
 /**
  * Speak Japanese. Uses Gemini neural TTS when mode=neural + API key,
  * otherwise falls back to system speechSynthesis.
- * Returns which engine actually played.
+ * Already-generated AI clips are stored on device and replay without Key.
  */
 export async function speakJapanese(
   text: string,
   opts?: { rate?: number; preferNeural?: boolean }
-): Promise<{ engine: "neural" | "system"; fallbackReason?: string }> {
+): Promise<{
+  engine: "neural" | "system";
+  fallbackReason?: string;
+  fromCache?: boolean;
+}> {
   const content = plainJapaneseForSpeech(text);
   if (!content) return { engine: "system" };
 
   const mode = opts?.preferNeural === false ? "system" : loadVoiceMode();
-  const apiKey = loadApiKey();
+  const apiKey = loadApiKey() || null;
 
   if (mode === "neural") {
-    if (!apiKey) {
-      await speakSystem(content, opts);
-      return {
-        engine: "system",
-        fallbackReason: "尚未設定 Gemini API Key，已改用系統語音",
-      };
-    }
     try {
       const voice = loadNeuralVoice();
-      const url = await fetchNeuralAudio(content, apiKey, voice);
+      const { url, fromCache } = await fetchNeuralAudio(content, apiKey, voice);
       await playObjectUrl(url, opts?.rate ?? 1);
-      return { engine: "neural" };
+      return { engine: "neural", fromCache };
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "AI 人聲失敗，已改用系統語音";
