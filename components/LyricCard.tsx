@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, EyeOff, Volume2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Eye, EyeOff, Volume2 } from "lucide-react";
 import type { Line } from "@/types/lyrics";
 import { renderFurigana } from "@/lib/furigana";
 
@@ -25,6 +26,9 @@ export default function LyricCard({
   onToggleJapanese,
   onSpeak,
 }: LyricCardProps) {
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const analysisText = (line.analysis || "").trim();
+
   return (
     <div className="lyric-card group w-full rounded-2xl bg-surface-elevated p-4 ring-1 ring-border transition-all hover:ring-accent/40 sm:p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -115,6 +119,28 @@ export default function LyricCard({
             }`}
           />
         ))}
+      </div>
+
+      <div className="mt-3 border-t border-border pt-2">
+        <button
+          type="button"
+          onClick={() => setAnalysisOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 rounded-lg py-1.5 text-left text-[11px] font-medium text-muted transition hover:text-accent"
+          aria-expanded={analysisOpen}
+        >
+          <span>句子分析</span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+              analysisOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        {analysisOpen && (
+          <div className="mt-1 rounded-xl bg-surface px-3 py-2.5 text-[12px] leading-relaxed text-soft ring-1 ring-border whitespace-pre-line">
+            {analysisText ||
+              "此句尚無分析。用 AI 新增歌曲時會自動產生簡單文法說明。"}
+          </div>
+        )}
       </div>
     </div>
   );

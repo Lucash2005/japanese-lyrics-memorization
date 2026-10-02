@@ -6,6 +6,8 @@ export interface Line {
   mastery: number; // 0–5, default 0
   startTime?: number; // seconds, mock timestamps OK
   hint?: string; // optional initial-sound hint for cloze
+  /** Simple grammar / sentence notes in Traditional Chinese */
+  analysis?: string;
 }
 
 export interface Song {

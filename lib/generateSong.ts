@@ -27,6 +27,7 @@ function normalizeSong(data: unknown, fallbackTitle: string, fallbackArtist: str
       furigana?: string;
       translation?: string;
       hint?: string;
+      analysis?: string;
     }>;
   };
 
@@ -39,6 +40,7 @@ function normalizeSong(data: unknown, fallbackTitle: string, fallbackArtist: str
     if (!japanese) return [];
     const furigana = (l.furigana || japanese).trim();
     const translation = (l.translation || "").trim();
+    const analysis = (l.analysis || "").trim() || undefined;
     const hintFromLine = (l.hint || "").trim();
     const firstKana = japanese.match(/[\u3040-\u309F\u30A0-\u30FF]/)?.[0];
     const hint = hintFromLine || (firstKana ? `${firstKana}…` : undefined);
@@ -51,6 +53,7 @@ function normalizeSong(data: unknown, fallbackTitle: string, fallbackArtist: str
         mastery: 0,
         startTime: i * 8,
         hint,
+        analysis,
       },
     ];
   });
