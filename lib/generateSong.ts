@@ -87,14 +87,24 @@ export async function generateSongWithGemini(input: GenerateInput): Promise<Song
 1) furigana：用 漢字(ひらがな) 標記讀音，例如 桜(さくら)の道(みち)
 2) translation：繁體中文翻譯
 3) hint：該行開頭的假名提示，例如 さ…
+4) analysis：繁體中文「例句文法」短文，格式固定為：
+例句文法（Gemini）
+1.原句與翻譯：…
+2.核心文法拆解：用 • 列出詞性／助詞／動詞形
+3.語感與特點：語氣、時態、適用情境
 回傳嚴格 JSON（不要 markdown）：
-{"title":"...","artist":"...","lines":[{"japanese":"...","furigana":"...","translation":"...","hint":"..."}]}
+{"title":"...","artist":"...","lines":[{"japanese":"...","furigana":"...","translation":"...","hint":"...","analysis":"..."}]}
 保留原日文語意，不要擅自改寫成別首歌。`
     : `你是日文歌詞學習助教。請創作「完全原創」的練習用日文歌詞（4～8 行），主題可呼應歌名氣氛，但絕對不可複製、改寫或近似任何現有受著作權保護的歌曲歌詞。
 artist 請標成「練習用（AI 原創）」。
-每行包含 japanese、furigana（漢字(ひらがな)）、translation（繁體中文）、hint。
+每行包含 japanese、furigana（漢字(ひらがな)）、translation（繁體中文）、hint、analysis。
+analysis 須為繁中，格式：
+例句文法（Gemini）
+1.原句與翻譯
+2.核心文法拆解（• 條列）
+3.語感與特點
 回傳嚴格 JSON：
-{"title":"...","artist":"練習用（AI 原創）","lines":[{"japanese":"...","furigana":"...","translation":"...","hint":"..."}]}`;
+{"title":"...","artist":"練習用（AI 原創）","lines":[{"japanese":"...","furigana":"...","translation":"...","hint":"...","analysis":"..."}]}`;
 
   const userPrompt = hasPaste
     ? `歌名：${input.title}\n演唱者：${input.artist}\n\n日文歌詞：\n${input.japaneseText}`

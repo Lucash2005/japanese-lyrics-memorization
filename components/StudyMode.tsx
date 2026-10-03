@@ -11,9 +11,10 @@ const SPEECH_PREF_KEY = "lyrics-speech-enabled-v1";
 
 interface StudyModeProps {
   lines: Line[];
+  onAnalysisUpdate?: (lineId: string, analysis: string) => void;
 }
 
-export default function StudyMode({ lines }: StudyModeProps) {
+export default function StudyMode({ lines, onAnalysisUpdate }: StudyModeProps) {
   const [showFurigana, setShowFurigana] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
   const [speechEnabled, setSpeechEnabled] = useState(true);
@@ -126,6 +127,7 @@ export default function StudyMode({ lines }: StudyModeProps) {
             speechEnabled={speechEnabled && speechOk}
             onToggleJapanese={() => toggleJapanese(line.id)}
             onSpeak={() => onSpeak(line)}
+            onAnalysisUpdate={onAnalysisUpdate}
           />
         ))}
       </div>

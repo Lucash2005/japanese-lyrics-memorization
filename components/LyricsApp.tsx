@@ -78,6 +78,24 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
     [persistSongs, song.id, songs]
   );
 
+  const onAnalysisUpdate = useCallback(
+    (lineId: string, analysis: string) => {
+      persistSongs(
+        songs.map((s) =>
+          s.id === song.id
+            ? {
+                ...s,
+                lines: s.lines.map((l) =>
+                  l.id === lineId ? { ...l, analysis } : l
+                ),
+              }
+            : s
+        )
+      );
+    },
+    [persistSongs, song.id, songs]
+  );
+
   const onSelect = (id: string) => {
     setActiveId(id);
     saveActiveSongId(id);
@@ -151,7 +169,13 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
       <ModeSwitcher mode={mode} onChange={setMode} />
 
       <main>
-        {mode === "study" && <StudyMode key={song.id} lines={lines} />}
+        {mode === "study" && (
+          <StudyMode
+            key={song.id}
+            lines={lines}
+            onAnalysisUpdate={onAnalysisUpdate}
+          />
+        )}
         {mode === "cloze" && (
           <ClozeMode
             key={song.id}
