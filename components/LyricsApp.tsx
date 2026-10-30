@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Music2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Download, Music2, Upload } from "lucide-react";
 import type { AppMode, Line, Song } from "@/types/lyrics";
 import ModeSwitcher from "./ModeSwitcher";
 import StudyMode from "./StudyMode";
@@ -11,12 +11,16 @@ import SongPicker from "./SongPicker";
 import AddSongDialog from "./AddSongDialog";
 import { APP_UPDATED_AT, APP_VERSION, formatUpdatedAt } from "@/lib/version";
 import {
+  exportLibraryJson,
+  loadPersistentLibrary,
+  parseImportedLibrary,
+  savePersistentLibrary,
+} from "@/lib/libraryStore";
+import {
   applyMastery,
   loadActiveSongId,
-  loadLibrary,
   loadMasteryMap,
   saveActiveSongId,
-  saveLibrary,
   saveMasteryMap,
   upsertSong,
 } from "@/lib/songLibrary";
@@ -31,17 +35,28 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
   const [activeId, setActiveId] = useState(seedSong.id);
   const [mode, setMode] = useState<AppMode>("study");
   const [addOpen, setAddOpen] = useState(false);
+  const [backupNote, setBackupNote] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   useEffect(() => {
-    const library = loadLibrary(seedSong);
-    const mastery = loadMasteryMap();
-    const withMastery = library.map((s) => applyMastery(s, mastery));
-    setSongs(withMastery);
-    const savedId = loadActiveSongId(seedSong.id);
-    setActiveId(
-      withMastery.some((s) => s.id === savedId) ? savedId : withMastery[0].id
-    );
-    setReady(true);
+    let cancelled = false;
+    void (async () => {
+      const library = await loadPersistentLibrary(seedSong);
+      if (cancelled) return;
+      const mastery = loadMasteryMap();
+      const withMastery = library.map((s) => applyMastery(s, mastery));
+      setSongs(withMastery);
+      const savedId = loadActiveSongId(seedSong.id);
+      setActiveId(
+        withMastery.some((s) => s.id === savedId) ? savedId : withMastery[0].id
+      );
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [seedSong]);
 
   const song = useMemo(
@@ -53,7 +68,24 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
 
   const persistSongs = useCallback((next: Song[]) => {
     setSongs(next);
-    saveLibrary(next);
+    void savePersistentLibrary(next);
+  }, []);
+
+  const patchActiveLines = useCallback((lineId: string, patch: Partial<Line>) => {
+    setSongs((prev) => {
+      const next = prev.map((s) =>
+        s.id !== activeIdRef.current
+          ? s
+          : {
+              ...s,
+              lines: s.lines.map((l) =>
+                l.id === lineId ? { ...l, ...patch } : l
+              ),
+            }
+      );
+      void savePersistentLibrary(next);
+      return next;
+    });
   }, []);
 
   const onMasteryChange = useCallback(
@@ -61,39 +93,16 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
       const map = loadMasteryMap();
       map[lineId] = mastery;
       saveMasteryMap(map);
-
-      persistSongs(
-        songs.map((s) =>
-          s.id === song.id
-            ? {
-                ...s,
-                lines: s.lines.map((l) =>
-                  l.id === lineId ? { ...l, mastery } : l
-                ),
-              }
-            : s
-        )
-      );
+      patchActiveLines(lineId, { mastery });
     },
-    [persistSongs, song.id, songs]
+    [patchActiveLines]
   );
 
   const onAnalysisUpdate = useCallback(
     (lineId: string, analysis: string) => {
-      persistSongs(
-        songs.map((s) =>
-          s.id === song.id
-            ? {
-                ...s,
-                lines: s.lines.map((l) =>
-                  l.id === lineId ? { ...l, analysis } : l
-                ),
-              }
-            : s
-        )
-      );
+      patchActiveLines(lineId, { analysis });
     },
-    [persistSongs, song.id, songs]
+    [patchActiveLines]
   );
 
   const onSelect = (id: string) => {
@@ -108,6 +117,42 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
     setActiveId(created.id);
     saveActiveSongId(created.id);
     setMode("study");
+  };
+
+  const onExport = async () => {
+    const json = exportLibraryJson(songs);
+    const file = new File([json], "lyrics-backup.json", {
+      type: "application/json",
+    });
+    try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "練歌曲庫備份",
+        });
+      } else {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "lyrics-backup.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      setBackupNote("已匯出備份。歌詞與分析都在檔案裡，不含 API Key。");
+    } catch {
+      setBackupNote("匯出已取消");
+    }
+  };
+
+  const onImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const merged = parseImportedLibrary(text, songs);
+      persistSongs(merged);
+      setBackupNote(`已匯入，目前 ${merged.length} 首歌。已分析的句子會一併還原。`);
+    } catch (e) {
+      setBackupNote(e instanceof Error ? e.message : "匯入失敗");
+    }
   };
 
   const onDelete = (id: string) => {
@@ -188,8 +233,41 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
         )}
       </main>
 
-      <footer className="space-y-1 pb-6 text-center text-[11px] text-muted/70">
-        <p>新增歌曲會存在此手機瀏覽器，不必重新編譯</p>
+      <footer className="space-y-2 pb-6 text-center text-[11px] text-muted/70">
+        <div className="flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => void onExport()}
+            className="inline-flex items-center gap-1 rounded-lg bg-surface-elevated px-3 py-2 text-[11px] text-soft ring-1 ring-border"
+          >
+            <Download className="h-3.5 w-3.5" />
+            匯出備份
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-lg bg-surface-elevated px-3 py-2 text-[11px] text-soft ring-1 ring-border"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            匯入備份
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void onImportFile(file);
+            }}
+          />
+        </div>
+        {backupNote && <p className="text-accent">{backupNote}</p>}
+        <p>分析沒有到期日，存在這支手機。觀看不需要 API Key。</p>
+        <p>
+          iPhone 若超過約一週沒打開本站，Safari 可能清掉本機資料（含分析與 Key）。建議加入主畫面，並偶爾匯出備份。
+        </p>
         <p className="font-mono text-muted/80">
           v{APP_VERSION} · 更新 {formatUpdatedAt(APP_UPDATED_AT)}
         </p>

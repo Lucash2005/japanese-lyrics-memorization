@@ -201,8 +201,13 @@ export default function LyricCard({
               {busy && !analysisText
                 ? "分析產生中…"
                 : analysisText ||
-                  "此句尚無分析。點「產生分析」可用 Gemini 依文法格式產生（需 API Key）。"}
+                  "這句還沒有分析。已存過的分析會直接顯示，重看不需要 API Key。只有「產生分析／重新分析」才需要 Key。"}
             </div>
+            {hasAnalysis && (
+              <p className="text-[10px] text-muted">
+                已存在這支手機，打開來看不需要 API Key。
+              </p>
+            )}
           </div>
         )}
       </div>
