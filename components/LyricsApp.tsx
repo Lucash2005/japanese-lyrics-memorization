@@ -16,9 +16,11 @@ import {
   parseImportedLibrary,
   savePersistentLibrary,
 } from "@/lib/libraryStore";
+import { analyzeLineWithGemini } from "@/lib/analyzeLine";
 import {
   applyMastery,
   loadActiveSongId,
+  loadApiKey,
   loadMasteryMap,
   saveActiveSongId,
   saveMasteryMap,
@@ -36,9 +38,16 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
   const [mode, setMode] = useState<AppMode>("study");
   const [addOpen, setAddOpen] = useState(false);
   const [backupNote, setBackupNote] = useState<string | null>(null);
+  const [autoProgress, setAutoProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [autoHint, setAutoHint] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef(activeId);
+  const songsRef = useRef(songs);
   activeIdRef.current = activeId;
+  songsRef.current = songs;
 
   useEffect(() => {
     let cancelled = false;
@@ -71,22 +80,32 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
     void savePersistentLibrary(next);
   }, []);
 
-  const patchActiveLines = useCallback((lineId: string, patch: Partial<Line>) => {
-    setSongs((prev) => {
-      const next = prev.map((s) =>
-        s.id !== activeIdRef.current
-          ? s
-          : {
-              ...s,
-              lines: s.lines.map((l) =>
-                l.id === lineId ? { ...l, ...patch } : l
-              ),
-            }
-      );
-      void savePersistentLibrary(next);
-      return next;
-    });
-  }, []);
+  const patchSongLine = useCallback(
+    (songId: string, lineId: string, patch: Partial<Line>) => {
+      setSongs((prev) => {
+        const next = prev.map((s) =>
+          s.id !== songId
+            ? s
+            : {
+                ...s,
+                lines: s.lines.map((l) =>
+                  l.id === lineId ? { ...l, ...patch } : l
+                ),
+              }
+        );
+        void savePersistentLibrary(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const patchActiveLines = useCallback(
+    (lineId: string, patch: Partial<Line>) => {
+      patchSongLine(activeIdRef.current, lineId, patch);
+    },
+    [patchSongLine]
+  );
 
   const onMasteryChange = useCallback(
     (lineId: string, mastery: number) => {
@@ -104,6 +123,74 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
     },
     [patchActiveLines]
   );
+
+  useEffect(() => {
+    if (!ready) return;
+    const songId = activeId;
+    let cancel = false;
+
+    void (async () => {
+      const current = songsRef.current.find((s) => s.id === songId);
+      const missing =
+        current?.lines.filter((l) => !l.analysis?.trim() && l.japanese.trim()) ??
+        [];
+      if (missing.length === 0) {
+        setAutoProgress(null);
+        setAutoHint(null);
+        return;
+      }
+      if (!loadApiKey()) {
+        setAutoProgress(null);
+        setAutoHint(
+          `有 ${missing.length} 句尚未分析。請在「新增」填入 Gemini API Key，之後會自動分析。`
+        );
+        return;
+      }
+
+      setAutoHint(null);
+      const finished = new Set<string>();
+      while (!cancel) {
+        const songNow = songsRef.current.find((s) => s.id === songId);
+        const nextLine = songNow?.lines.find(
+          (l) =>
+            l.japanese.trim() &&
+            !l.analysis?.trim() &&
+            !finished.has(l.id)
+        );
+        if (!songNow || !nextLine) {
+          if (!cancel) setAutoProgress(null);
+          return;
+        }
+        const total = songNow.lines.filter((l) => l.japanese.trim()).length;
+        const done =
+          songNow.lines.filter(
+            (l) => l.analysis?.trim() || finished.has(l.id)
+          ).length + 1;
+        setAutoProgress({ done, total });
+        try {
+          const text = await analyzeLineWithGemini({
+            japanese: nextLine.japanese,
+            translation: nextLine.translation,
+            furigana: nextLine.furigana,
+          });
+          if (cancel) return;
+          finished.add(nextLine.id);
+          patchSongLine(songId, nextLine.id, { analysis: text });
+          await new Promise((r) => setTimeout(r, 400));
+        } catch (e) {
+          if (cancel) return;
+          const msg = e instanceof Error ? e.message : "自動分析失敗";
+          setAutoHint(msg);
+          setAutoProgress(null);
+          return;
+        }
+      }
+    })();
+
+    return () => {
+      cancel = true;
+    };
+  }, [ready, activeId, patchSongLine]);
 
   const onSelect = (id: string) => {
     setActiveId(id);
@@ -209,6 +296,14 @@ export default function LyricsApp({ seedSong }: LyricsAppProps) {
           <span className="h-1 w-1 rounded-full bg-border" />
           <span>平均熟練度 {avgMastery.toFixed(1)} / 5</span>
         </div>
+        {autoProgress && (
+          <p className="text-xs text-accent">
+            正在自動分析 {autoProgress.done} / {autoProgress.total} 句，完成後可直接展開
+          </p>
+        )}
+        {autoHint && (
+          <p className="text-xs leading-relaxed text-muted">{autoHint}</p>
+        )}
       </header>
 
       <ModeSwitcher mode={mode} onChange={setMode} />
